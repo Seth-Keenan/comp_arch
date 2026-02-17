@@ -523,11 +523,8 @@ void print_program(){
 	for (uint32_t i = 0; i < PROGRAM_SIZE; i++) {
 		uint32_t addr = MEM_TEXT_BEGIN + (i * 4);
 		uint32_t inst = mem_read_32(addr);
-
-		printf("0x%08x : 0x%08x\t", addr, inst);
 		print_command(inst);
 	}
-	
 }
 
 /************************************************************/
