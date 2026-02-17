@@ -520,8 +520,13 @@ void initialize() {
 /* Print the program loaded into memory (in RISCV assembly format)    */ 
 /************************************************************/
 void print_program(){
-	/*IMPLEMENT THIS*/
-	/* execute one instruction at a time. Use/update CURRENT_STATE and and NEXT_STATE, as necessary.*/
+	for (uint32_t i = 0; i < PROGRAM_SIZE; i++) {
+		uint32_t addr = MEM_TEXT_BEGIN + (i * 4);
+		uint32_t inst = mem_read_32(addr);
+
+		printf("0x%08x : 0x%08x\t", addr, inst);
+		print_command(inst);
+	}
 	
 }
 
