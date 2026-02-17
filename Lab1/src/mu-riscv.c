@@ -321,6 +321,7 @@ void R_Processing(uint32_t rd, uint32_t f3, uint32_t rs1, uint32_t rs2, uint32_t
 			switch(f7){
 				case 0:		//add
 					NEXT_STATE.REGS[rd] = NEXT_STATE.REGS[rs1] + NEXT_STATE.REGS[rs2];
+					printf("\nadd: x%u = %d\n", rd, NEXT_STATE.REGS[rd]);
 					break;
 				case 32:	//sub
 					NEXT_STATE.REGS[rd] = NEXT_STATE.REGS[rs1] - NEXT_STATE.REGS[rs2];
@@ -500,7 +501,46 @@ void handle_instruction()
 {
 	/*IMPLEMENT THIS*/
 	/* execute one instruction at a time. Use/update CURRENT_STATE and and NEXT_STATE, as necessary.*/
+	CURRENT_STATE = NEXT_STATE;
 	
+	uint32_t bincmd = mem_read_32(CURRENT_STATE.PC);
+	
+	NEXT_STATE.PC = CURRENT_STATE.PC + 4;
+	
+	enum OPCODE_TYPE cmd_type = get_opcode_type(bincmd);
+    switch (cmd_type) {
+        case R:
+            R_Processing(bincmd >> 7 & BIT_MASK_5, bincmd >> 12 & BIT_MASK_3, bincmd >> 15 & BIT_MASK_5, bincmd >> 20 & BIT_MASK_5, bincmd >> 25 & BIT_MASK_7);
+			printf("R-type instruction: ");
+			print_command(bincmd);
+            break;
+		case S:
+			S_Processing(bincmd >> 7 & BIT_MASK_5, bincmd >> 12 & BIT_MASK_3, bincmd >> 15 & BIT_MASK_5, bincmd >> 20 & BIT_MASK_5, bincmd >> 25 & BIT_MASK_7);
+			printf("S-type instruction: ");
+			print_command(bincmd);
+			break;
+		case I:
+			printf("I-type instruction: ");
+			print_command(bincmd);
+			uint8_t opcode = bincmd & BIT_MASK_7;
+    		if (opcode == 0b0010011) {
+        		Iimm_Processing(bincmd >> 7 & BIT_MASK_5,
+                    bincmd >> 12 & BIT_MASK_3,
+                    bincmd >> 15 & BIT_MASK_5,
+                    bincmd >> 20 & BIT_MASK_12);
+				} else {
+        		ILoad_Processing(bincmd >> 7 & BIT_MASK_5,
+                	bincmd >> 12 & BIT_MASK_3,
+                	bincmd >> 15 & BIT_MASK_5,
+                	bincmd >> 20 & BIT_MASK_12);
+				}
+			break;
+		default:
+			printf("Unknown command!");
+			break;
+    }
+	printf("\n");
+
 	
 }
 
