@@ -507,6 +507,15 @@ void handle_instruction()
 	
 	NEXT_STATE.PC = CURRENT_STATE.PC + 4;
 	
+	// Handle Exit Call
+	uint8_t opcode = bincmd & BIT_MASK_7;
+	if (opcode == 0x73) {
+        if (CURRENT_STATE.REGS[2] == 0xA) {
+            RUN_FLAG = FALSE;
+        }
+        return;
+    }
+
 	enum OPCODE_TYPE cmd_type = get_opcode_type(bincmd);
     switch (cmd_type) {
         case R:
@@ -540,8 +549,6 @@ void handle_instruction()
 			break;
     }
 	printf("\n");
-
-	
 }
 
 
