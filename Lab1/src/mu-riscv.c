@@ -510,9 +510,12 @@ void handle_instruction()
 	// Handle Exit Call
 	uint8_t opcode = bincmd & BIT_MASK_7;
 	if (opcode == 0x73) {
-        if (CURRENT_STATE.REGS[2] == 0xA) {
+        if (CURRENT_STATE.REGS[2] == 0xA || NEXT_STATE.REGS[2] == 0xA) {
+			printf("ECALL Instruction: valid");
             RUN_FLAG = FALSE;
-        }
+        } else {
+			printf("ECALL Instruction: with invalid $v0 value to exit");
+		}
         return;
     }
 
