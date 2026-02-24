@@ -511,10 +511,10 @@ void handle_instruction()
 	uint8_t opcode = bincmd & BIT_MASK_7;
 	if (opcode == 0x73) {
         if (CURRENT_STATE.REGS[2] == 0xA || NEXT_STATE.REGS[2] == 0xA) {
-			printf("ECALL Instruction: valid");
+			printf("ECALL Instruction: valid\n");
             RUN_FLAG = FALSE;
         } else {
-			printf("ECALL Instruction: with invalid $v0 value to exit");
+			printf("ECALL Instruction: with invalid $v0 value to exit\n");
 		}
         return;
     }
@@ -523,16 +523,16 @@ void handle_instruction()
     switch (cmd_type) {
         case R:
             R_Processing(bincmd >> 7 & BIT_MASK_5, bincmd >> 12 & BIT_MASK_3, bincmd >> 15 & BIT_MASK_5, bincmd >> 20 & BIT_MASK_5, bincmd >> 25 & BIT_MASK_7);
-			printf("R-type instruction: ");
+			// printf("R-type instruction: ");
 			print_command(bincmd);
             break;
 		case S:
 			S_Processing(bincmd >> 7 & BIT_MASK_5, bincmd >> 12 & BIT_MASK_3, bincmd >> 15 & BIT_MASK_5, bincmd >> 20 & BIT_MASK_5, bincmd >> 25 & BIT_MASK_7);
-			printf("S-type instruction: ");
+			// printf("S-type instruction: ");
 			print_command(bincmd);
 			break;
 		case I:
-			printf("I-type instruction: ");
+			// printf("I-type instruction: ");
 			print_command(bincmd);
 			uint8_t opcode = bincmd & BIT_MASK_7;
     		if (opcode == 0b0010011) {
