@@ -534,7 +534,6 @@ void handle_instruction()
 		case I:
 			printf("I-type instruction: ");
 			print_command(bincmd);
-			uint8_t opcode = bincmd & BIT_MASK_7;
     		if (opcode == 0b0010011) {
         		Iimm_Processing(bincmd >> 7 & BIT_MASK_5,
                     bincmd >> 12 & BIT_MASK_3,
@@ -593,7 +592,12 @@ void print_command(uint32_t bincmd) {
 			handle_i_print(bincmd);
 			break;
 		default:
-			printf("Unknown command!");
+			uint8_t opcode = bincmd & BIT_MASK_7;
+			if (opcode == 0x73) {
+				printf("ECALL");
+			} else {
+				printf("Unknown command!");
+			}
 			break;
     }
 	printf("\n");
