@@ -1,0 +1,12 @@
+add x10, zero, 0
+add x11, zero, 0 
+addi x12, zero, 20
+Loop:  
+bge x11, x12, exit:  
+sll x13, x11, 2 
+add x13, x13, x8
+lw x13, 0(x13)  
+add x10, x10, x13
+addi x11, x11, 1
+j Loop
+exit:
