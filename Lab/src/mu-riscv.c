@@ -475,9 +475,85 @@ void S_Processing(uint32_t imm4, uint32_t f3, uint32_t rs1, uint32_t rs2, uint32
 	}
 }
 
-void B_Processing() {
-	// hi
-}
+void B_Processing() {  
+	uint32_t bincmd = mem_read_32(CURRENT_STATE.PC); 
+	uint8_t f3 = bincmd >> 12 & BIT_MASK_3; 
+	uint8_t urs1 = bincmd >> 15 & BIT_MASK_5; 
+	uint8_t urs2 = bincmd >> 20 & BIT_MASK_5; 
+	int8_t rs1 = bincmd >> 15 & BIT_MASK_5; 
+	int8_t rs2 = bincmd >> 20 & BIT_MASK_5; 
+	uint8_t imm4 = bincmd >> 7 & BIT_MASK_5; 
+	uint8_t imm11 = bincmd >> 25 & BIT_MASK_7; 
+	uint16_t imm = (imm11 | imm4); 
+	
+	
+	printf("IMM %d\n", imm); 
+	
+	printf("f3: %d\n", f3); 
+	if (f3 == 0) { 
+		printf("BEQ checking rs1: %d value: %d and rs2: %d value: %d\n", rs1, NEXT_STATE.REGS[rs1], rs2, NEXT_STATE.REGS[rs2]); 
+	
+		if (NEXT_STATE.REGS[rs1] == NEXT_STATE.REGS[rs2]) { 
+			printf("CHANGING PC\n"); 
+			NEXT_STATE.PC = MEM_TEXT_BEGIN + imm;
+			printf("New PC: %d\n", NEXT_STATE.PC); 
+		} else { 
+			printf("NOT CHANGING PC!\n"); 
+			return; 
+		} 
+
+	} else if (f3 == 1) { 
+		printf("BNE checking rs1: %d and rs2: %d\n", rs1, rs2); 
+		if (NEXT_STATE.REGS[rs1] != NEXT_STATE.REGS[rs2]) { 
+			printf("CHANGING PC\n"); 
+			NEXT_STATE.PC = MEM_TEXT_BEGIN + imm; 
+		} else { 
+			printf("NOT CHANGING PC!\n"); 
+			return; 
+		} 
+
+	} else if (f3 == 4) { 
+		printf("BLT checking rs1: %d and rs2: %d\n", rs1, rs2); 
+		if (NEXT_STATE.REGS[rs1] < NEXT_STATE.REGS[rs2]) { 
+			printf("CHANGING PC\n"); 
+			NEXT_STATE.PC = MEM_TEXT_BEGIN + imm; 
+		} else { 
+			printf("NOT CHANGING PC!\n"); 
+			return; 
+		} 
+
+	} else if (f3 == 5) { 
+		printf("BGE checking rs1: %d and rs2: %d\n", rs1, rs2); 
+		if (NEXT_STATE.REGS[rs1] >= NEXT_STATE.REGS[rs2]) { 
+			printf("CHANGING PC\n"); 
+			NEXT_STATE.PC = MEM_TEXT_BEGIN + imm;
+		} else { 
+			printf("NOT CHANGING PC!\n"); 
+			return; 
+		} 
+	
+	} else if (f3 == 6) { 
+		if (urs1 < urs2) { 
+			printf("CHANGING PC\n"); 
+			NEXT_STATE.PC = MEM_TEXT_BEGIN + imm; 
+		} else { 
+		printf("NOT CHANGING PC!\n"); 
+		return; 
+		} 
+		printf("BLTU\n"); 
+	} else if (f3 == 7) { 
+		if (rs1 >= rs2) { 
+			printf("CHANGING PC\n"); 
+			NEXT_STATE.PC = MEM_TEXT_BEGIN + imm; 
+		} else { 
+			printf("NOT CHANGING PC!\n"); 
+			return; 
+		} 
+			printf("BGEU\n"); 
+	} else { 
+		printf("Invalid Branch Command!\n"); 
+	} 
+} 
 
 void J_Processing() {
 	// hi
@@ -545,6 +621,10 @@ void handle_instruction()
                 	bincmd >> 15 & BIT_MASK_5,
                 	bincmd >> 20 & BIT_MASK_12);
 				}
+			break;
+		case B:
+			B_Processing();
+			printf("B-type instruction: ");
 			break;
 		default:
 			printf("Unknown command!");
