@@ -42,10 +42,6 @@ make
    ```
 3. Follow the on-screen prompts to interact with the simulator.
 
-## Commands
-- `run`: Convert the loaded program to hex.
-- `print`: Display the program loaded into memory.
-- `quit`: Exit the simulator.
 
 ## License
 This project is licensed under the MIT License.
