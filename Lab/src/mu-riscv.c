@@ -321,7 +321,7 @@ void R_Processing(uint32_t rd, uint32_t f3, uint32_t rs1, uint32_t rs2, uint32_t
 			switch(f7){
 				case 0:		//add
 					NEXT_STATE.REGS[rd] = NEXT_STATE.REGS[rs1] + NEXT_STATE.REGS[rs2];
-					printf("\nadd: x%u = %d\n", rd, NEXT_STATE.REGS[rd]);
+					// printf("\nadd: x%u = %d\n", rd, NEXT_STATE.REGS[rd]);
 					break;
 				case 32:	//sub
 					NEXT_STATE.REGS[rd] = NEXT_STATE.REGS[rs1] - NEXT_STATE.REGS[rs2];
@@ -396,12 +396,6 @@ void ILoad_Processing(uint32_t rd, uint32_t f3, uint32_t rs1, uint32_t imm) {
 }
 
 void Iimm_Processing(uint32_t rd, uint32_t f3, uint32_t rs1, uint32_t imm) {
-	
-	printf("Iimm values:\n%d\n", imm);
-	printf("%d\n", rs1);
-	printf("%d\n", f3);
-	printf("%d\n", rd);
-	
 	uint32_t imm0_4 = (imm << 7) >> 7;
 	uint32_t imm5_11 = imm >> 5;
 	switch (f3)
@@ -498,8 +492,8 @@ void B_Processing() {
     // Sign-extend from bit 12
     if (imm_12) imm |= 0xFFFFE000;
 
-    printf("IMM %d\n", imm); 
-    printf("f3: %d\n", f3); 
+    // printf("IMM %d\n", imm); 
+    // printf("f3: %d\n", f3); 
 
     int branch_taken = 0;
     if (f3 == 0) {          // BEQ
@@ -520,9 +514,9 @@ void B_Processing() {
     }
 
     if (branch_taken) {
-        printf("CHANGING PC\n");
-        NEXT_STATE.PC = CURRENT_STATE.PC + imm;  // PC-relative, not MEM_TEXT_BEGIN + imm
-        printf("New PC: 0x%08x\n", NEXT_STATE.PC);
+        // printf("CHANGING PC\n");
+        NEXT_STATE.PC = CURRENT_STATE.PC + imm;
+        // printf("New PC: 0x%08x\n", NEXT_STATE.PC);
     } else {
         printf("NOT CHANGING PC!\n");
     }
@@ -587,14 +581,14 @@ void handle_instruction()
 			uint32_t rd = bincmd >> 7 & BIT_MASK_5;
 			uint32_t f3 = bincmd >> 12 & BIT_MASK_3;
 			uint32_t rs1 = bincmd >> 15 & BIT_MASK_5;
-			uint32_t imm = bincmd >> 20 & BIT_MASK_12;
+			uint32_t imm = bincmd >> 20 & 0xFFF;
     		
 			if (opcode == 0b0010011) {
         		Iimm_Processing(
 					rd,
                     f3,
                     rs1,
-                    imm
+                    imm);
 				} else {
         		ILoad_Processing(
 					rd,
@@ -604,8 +598,9 @@ void handle_instruction()
 				}
 			break;
 		case B:
-			B_Processing();
 			printf("B-type instruction: ");
+			print_command(bincmd);
+			B_Processing();
 			break;
 		default:
 			printf("Unknown command!");
@@ -651,6 +646,9 @@ void print_command(uint32_t bincmd) {
 			break;
 		case I:
 			handle_i_print(bincmd);
+			break;
+		case B:
+			handle_b_print(bincmd);
 			break;
 		default:
 			uint8_t opcode = bincmd & BIT_MASK_7;
@@ -820,7 +818,29 @@ void handle_i_print(uint32_t bincmd) {
 			printf("Unknown opcode(%d) for I-Type.", opcode);
 			break;
 	}
+}
 
+void handle_b_print(uint32_t bincmd) {
+    uint8_t f3     = (bincmd >> 12) & BIT_MASK_3;
+    uint8_t rs1    = (bincmd >> 15) & BIT_MASK_5;
+    uint8_t rs2    = (bincmd >> 20) & BIT_MASK_5;
+
+    uint32_t imm_11   = (bincmd >> 7)  & 0x1;
+    uint32_t imm_4_1  = (bincmd >> 8)  & 0xF;
+    uint32_t imm_10_5 = (bincmd >> 25) & 0x3F;
+    uint32_t imm_12   = (bincmd >> 31) & 0x1;
+    int32_t imm = (imm_12 << 12) | (imm_11 << 11) | (imm_10_5 << 5) | (imm_4_1 << 1);
+    if (imm_12) imm |= 0xFFFFE000;
+
+    switch (f3) {
+        case 0x0: printf("beq x%d, x%d, %d",  rs1, rs2, imm); break;
+        case 0x1: printf("bne x%d, x%d, %d",  rs1, rs2, imm); break;
+        case 0x4: printf("blt x%d, x%d, %d",  rs1, rs2, imm); break;
+        case 0x5: printf("bge x%d, x%d, %d",  rs1, rs2, imm); break;
+        case 0x6: printf("bltu x%d, x%d, %d", rs1, rs2, imm); break;
+        case 0x7: printf("bgeu x%d, x%d, %d", rs1, rs2, imm); break;
+        default:  printf("Unknown funct3(%d) in B-type", f3);  break;
+    }
 }
 
 void print_r_cmd(char* cmd_name, uint8_t rd, uint8_t rs1, uint8_t rs2) {

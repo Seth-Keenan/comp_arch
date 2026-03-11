@@ -122,6 +122,7 @@ void print_command(uint32_t);
 void handle_r_print(uint32_t bincmd);
 void handle_s_print(uint32_t bincmd);
 void handle_i_print(uint32_t bincmd);
+void handle_b_print(uint32_t bincmd);
 void print_r_cmd(char* cmd_name, uint8_t rd, uint8_t rs1, uint8_t rs2);
 void print_s_cmd(char* cmd_name, uint8_t rs2, uint8_t offset, uint8_t rs1);
 void print_i_type1_cmd(char* cmd_name, uint8_t rd, uint8_t rs1, uint16_t imm);
