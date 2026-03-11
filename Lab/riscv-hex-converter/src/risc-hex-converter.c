@@ -390,6 +390,10 @@ void run(void) {
         free(lines[i]);
     }
 
+    fprintf(fp_out, "%08x\n", 0x00a00113);
+    fprintf(fp_out, "%08x\n", 0x00000073);
+    PROGRAM_SIZE += 2;
+
     fclose(fp_out);
 
     printf("\nDone — %u instruction(s) written to %s\n\n", PROGRAM_SIZE, out_path);
