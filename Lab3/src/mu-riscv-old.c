@@ -1,9 +1,5 @@
 #include "mu-riscv.h"
 
-/* Pipeline-register snapshots taken at the start of each cycle */
-static CPU_Pipeline_Reg SNAP_EX_MEM;
-static CPU_Pipeline_Reg SNAP_MEM_WB;
-
 /***************************************************************/
 /* Print out a list of commands available                                                                  */
 /***************************************************************/
@@ -319,8 +315,9 @@ void load_program() {
 /************************************************************/
 void handle_pipeline()
 {
-	SNAP_EX_MEM = EX_MEM;
-	SNAP_MEM_WB = MEM_WB;
+	/*INSTRUCTION_COUNT should be incremented when instruction is done
+	/*Since we do not have branch/jump instructions, INSTRUCTION_COUNT should be incremented in WB stage */
+	/* Work backwards because otherwise we would just be running instructions in sequential order, no pipeline. This allows for that "offset"*/
 
 	WB();
 	MEM();
@@ -330,6 +327,8 @@ void handle_pipeline()
 		IF();
 	}
 	bubble = false;
+	
+	
 }
 
 /************************************************************/
@@ -337,52 +336,53 @@ void handle_pipeline()
 /************************************************************/
 void WB()
 {
-	uint32_t ir = MEM_WB.IR;
-	if (ir == 0) return;
+	bool ALUInstruction = true;
+	bool reg_to_reg = true;
 
-	uint8_t opcode = GET_OPCODE(ir);
-	uint8_t rd = (ir >> 7) & BIT_MASK_5;
+	printf("\nWB Stage:\n");
+	printf("IR = %x\n", MEM_WB.IR);
+	printf("ALUOutput = %x\n", MEM_WB.ALUOutput);
+	printf("LMD = %x\n", MEM_WB.LMD);
 
-	switch (opcode) {
-		case R_OPCODE:
-		case IMM_ALU_OPCODE:
-			if (rd != 0) NEXT_STATE.REGS[rd] = MEM_WB.ALUOutput;
-			break;
-		case LOAD_OPCODE:
-			if (rd != 0) NEXT_STATE.REGS[rd] = MEM_WB.LMD;
-			break;
-		case STORE_OPCODE:
-			break;
-		default:
-			break;
-	}
-
-	INSTRUCTION_COUNT++;
-	if (INSTRUCTION_COUNT >= PROGRAM_SIZE) {
-		RUN_FLAG = FALSE;
+	if(ALUInstruction) {
+		if(reg_to_reg) {
+			CURRENT_STATE.REGS[MEM_WB.IR >> 7 & BIT_MASK_5] = MEM_WB.ALUOutput;
+		} else {
+			CURRENT_STATE.REGS[MEM_WB.IR >> 20 & BIT_MASK_5] = MEM_WB.ALUOutput;
+		}
+	} else {
+		CURRENT_STATE.REGS[MEM_WB.IR >> 20 & BIT_MASK_5] = MEM_WB.LMD;
 	}
 }
 
 /************************************************************/
 /* memory access (MEM) pipeline stage:                                                          */
 /************************************************************/
-void MEM()
-{
-	MEM_WB.IR = EX_MEM.IR;
-	MEM_WB.ALUOutput = EX_MEM.ALUOutput;
-	MEM_WB.LMD = 0;
-
-	if (EX_MEM.IR == 0) return;
-
-	uint8_t opcode = GET_OPCODE(EX_MEM.IR);
-
-	if (opcode == LOAD_OPCODE) {
-		MEM_WB.LMD = mem_read_32(EX_MEM.ALUOutput);
-	} else if (opcode == STORE_OPCODE) {
-		mem_write_32(EX_MEM.ALUOutput, EX_MEM.B);
-	}
-}
- 
+void MEM() 
+{ 
+	MEM_WB.IR = EX_MEM.IR; 
+	
+	bool ALUInstructon = true; 
+	bool load = true;
+	
+	printf("\n\nMEM Stage:\n");
+	printf("IR = %x\n", MEM_WB.IR);
+	printf("ALUOutput = %x\n", MEM_WB.ALUOutput);
+	printf("LMD = %x\n", MEM_WB.LMD);
+	
+	if (ALUInstructon) 
+	{ 
+		MEM_WB.ALUOutput = EX_MEM.ALUOutput; 
+	} else { 
+		if (load) { 
+			uint32_t addr = MEM_TEXT_BEGIN + EX_MEM.ALUOutput;	// OR MEM_DATA_BEGIN? 
+			MEM_WB.LMD = mem_read_32(addr);
+		} else { 
+			uint32_t addr = MEM_TEXT_BEGIN + EX_MEM.ALUOutput; 
+			mem_write_32(addr, EX_MEM.B);
+		} 
+	} 
+} 
 
 /************************************************************/
 /* execution (EX) pipeline stage:                                                                          */
@@ -413,7 +413,6 @@ void EX()
 	
 }
 
-
 /************************************************************/
 /* instruction decode (ID) pipeline stage:                                                         */
 /************************************************************/
@@ -430,22 +429,22 @@ void ID()
 	ID_EX.imm = (IF_ID.IR >> 0) & BIT_MASK_16;
 }
 
-
 /************************************************************/
 /* instruction fetch (IF) pipeline stage:                                                              */
 /************************************************************/
 void IF()
-{
-	uint32_t pc = CURRENT_STATE.PC;
-	if (pc >= MEM_TEXT_BEGIN && pc < MEM_TEXT_BEGIN + PROGRAM_SIZE * 4) {
-		IF_ID.IR = mem_read_32(pc);
-	} else {
-		IF_ID.IR = 0;
-	}
-	IF_ID.PC = pc + 4;
-	NEXT_STATE.PC = pc + 4;
-}
- 
+{ 
+
+	printf("\n\nIF Stage:\n");
+	printf("PC = %x\n\n\n", CURRENT_STATE.PC);
+
+	// Fetch the instruction at the current PC. 
+	CURRENT_STATE.PC = NEXT_STATE.PC; 
+	// Store the fetched instruction in the IR for the next state. 
+	IF_ID.IR = CURRENT_STATE.PC; 
+	// Increment the PC by 4 to point to the next instruction. 
+	NEXT_STATE.PC = CURRENT_STATE.PC + 4; 
+} 
 
 
 /************************************************************/
@@ -741,33 +740,8 @@ void print_b_cmd(char* cmd_name, uint8_t rs1, uint8_t rs2, uint16_t imm) {
 /************************************************************/
 void show_pipeline()
 {
-	printf("Current PC:          0x%08x\n", CURRENT_STATE.PC);
-	printf("IF/ID IR             0x%08x  ", IF_ID.IR);
-	if (IF_ID.IR) print_command(IF_ID.IR);
-	printf("\n");
-	printf("IF/ID PC             0x%08x\n", IF_ID.PC);
-	printf("\n");
-	printf("ID/EX IR             0x%08x  ", ID_EX.IR);
-	if (ID_EX.IR) print_command(ID_EX.IR);
-	printf("\n");
-	printf("ID/EX A              0x%08x\n", ID_EX.A);
-	printf("ID/EX B              0x%08x\n", ID_EX.B);
-	printf("ID/EX imm            0x%08x\n", ID_EX.imm);
-	printf("\n");
-	printf("EX/MEM IR            0x%08x  ", EX_MEM.IR);
-	if (EX_MEM.IR) print_command(EX_MEM.IR);
-	printf("\n");
-	printf("EX/MEM A             0x%08x\n", EX_MEM.A);
-	printf("EX/MEM B             0x%08x\n", EX_MEM.B);
-	printf("EX/MEM ALUOutput     0x%08x\n", EX_MEM.ALUOutput);
-	printf("\n");
-	printf("MEM/WB IR            0x%08x  ", MEM_WB.IR);
-	if (MEM_WB.IR) print_command(MEM_WB.IR);
-	printf("\n");
-	printf("MEM/WB ALUOutput     0x%08x\n", MEM_WB.ALUOutput);
-	printf("MEM/WB LMD           0x%08x\n", MEM_WB.LMD);
-}
 
+}
 
 /***************************************************************/
 /* main                                                                                                                                   */
