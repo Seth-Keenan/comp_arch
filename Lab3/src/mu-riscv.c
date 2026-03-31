@@ -1,9 +1,5 @@
 #include "mu-riscv.h"
 
-/* Pipeline-register snapshots taken at the start of each cycle */
-static CPU_Pipeline_Reg SNAP_EX_MEM;
-static CPU_Pipeline_Reg SNAP_MEM_WB;
-
 /***************************************************************/
 /* Print out a list of commands available                                                                  */
 /***************************************************************/
@@ -319,9 +315,7 @@ void load_program() {
 /************************************************************/
 void handle_pipeline()
 {
-	SNAP_EX_MEM = EX_MEM;
-	SNAP_MEM_WB = MEM_WB;
-
+	// Test show pipeline here
 	printf("\nShow Pipeline: \n");
 	show_pipeline();
 
@@ -350,13 +344,12 @@ void WB()
 	switch (opcode) {
 		case R_OPCODE:
 			if (rd != 0) NEXT_STATE.REGS[rd] = MEM_WB.ALUOutput;
+			break;
 		case IMM_ALU_OPCODE:
-			if (rt != 0) NEXT_STATE.REGS[rt] = MEM_WB.ALUOutput;
+			if (rd != 0) NEXT_STATE.REGS[rd] = MEM_WB.ALUOutput;
 			break;
 		case LOAD_OPCODE:
-			if (rd != 0) NEXT_STATE.REGS[rd] = MEM_WB.LMD;
-			break;
-		case STORE_OPCODE:
+			if (rt != 0) NEXT_STATE.REGS[rt] = MEM_WB.LMD;
 			break;
 		default:
 			break;
@@ -397,18 +390,62 @@ void MEM()
 void EX()
 {
 	EX_MEM.IR = ID_EX.IR;
-
-	bool ALUInstruction = true;
-	bool reg_to_reg = true;
-
-	uint32_t ir = MEM_WB.IR;
+	uint32_t ir = ID_EX.IR;
 	if (ir == 0) return;
 
 	uint8_t opcode = GET_OPCODE(ir);
 
 	if(opcode == IMM_ALU_OPCODE || opcode == R_OPCODE) {
 		if(opcode == R_OPCODE) {
-			EX_MEM.ALUOutput = ID_EX.A + ID_EX.B;
+			uint8_t funct3 = ir >> 12 & BIT_MASK_3;
+			uint8_t funct7 = ir >> 25 & BIT_MASK_7;
+
+			switch (funct3) {
+				case ADD_SUB:
+					switch(funct7) {
+						case ADD:
+							EX_MEM.ALUOutput = ID_EX.A + ID_EX.B;
+							break;
+						case SUB:
+							EX_MEM.ALUOutput = ID_EX.A - ID_EX.B;
+							break;
+						default:
+							break;
+					}
+					break;
+				case SLL:
+					EX_MEM.ALUOutput = ID_EX.A << (ID_EX.B & 0x1F);
+					break;
+				case SLT:
+					EX_MEM.ALUOutput = (int32_t)ID_EX.A < (int32_t)ID_EX.B ? 1 : 0;
+					break;
+				case SLTU:
+					EX_MEM.ALUOutput = ID_EX.A < ID_EX.B ? 1 : 0;
+					break;
+				case XOR:
+					EX_MEM.ALUOutput = ID_EX.A ^ ID_EX.B;
+					break;
+				case SRL_SRA:
+					switch(funct7) {
+						case SRL:
+							EX_MEM.ALUOutput = ID_EX.A >> (ID_EX.B & 0x1F);
+							break;
+						case SRA:
+							EX_MEM.ALUOutput = (int32_t)ID_EX.A >> (ID_EX.B & 0x1F);
+							break;
+						default:
+							break;
+					}
+					break;
+				case OR:
+					EX_MEM.ALUOutput = ID_EX.A | ID_EX.B;
+					break;
+				case AND:
+					EX_MEM.ALUOutput = ID_EX.A & ID_EX.B;
+					break;
+				default:
+					break;
+			}
 		} else {
 			EX_MEM.ALUOutput = ID_EX.A + ID_EX.imm;
 		}
@@ -416,7 +453,6 @@ void EX()
 		EX_MEM.ALUOutput = ID_EX.A + ID_EX.imm;
 		EX_MEM.B = ID_EX.B;
 	}
-	
 }
 
 
@@ -426,9 +462,20 @@ void EX()
 void ID()
 {	
 	ID_EX.IR = IF_ID.IR;
+	uint32_t ir = IF_ID.IR;
+
 	ID_EX.A = CURRENT_STATE.REGS[IF_ID.IR >> 15 & BIT_MASK_5];
 	ID_EX.B = CURRENT_STATE.REGS[IF_ID.IR >> 20 & BIT_MASK_5];
-	ID_EX.imm = (IF_ID.IR >> 0) & BIT_MASK_16;
+	
+	uint8_t opcode = GET_OPCODE(ir);
+	if(opcode == IMM_ALU_OPCODE || opcode == R_OPCODE) {
+		ID_EX.imm = ir >> 20;
+	} else if (opcode == STORE_OPCODE) {
+		int32_t imm = (((int32_t)(IF_ID.IR) >> 25) << 5) | ((IF_ID.IR >> 7) & 0x1F);
+        ID_EX.imm = (imm << 20) >> 20; 
+	} else {
+		ID_EX.imm = 0;
+	}
 }
 
 
@@ -446,6 +493,7 @@ void IF()
 	IF_ID.PC = pc + 4;
 	NEXT_STATE.PC = pc + 4;
 }
+
 /************************************************************/
 /* Initialize Memory                                                                                                    */
 /************************************************************/
@@ -459,10 +507,7 @@ void initialize() {
 /************************************************************/
 /* Print the program loaded into memory (in RISCV assembly format)    */
 /************************************************************/
-void print_program(){
-	/*IMPLEMENT THIS*/
-	/* execute one instruction at a time. Use/update CURRENT_STATE and and NEXT_STATE, as necessary.*/
-	
+void print_program() {
 	for(uint32_t mem_tracer = MEM_TEXT_BEGIN; 
 		mem_tracer < MEM_TEXT_BEGIN + PROGRAM_SIZE*4; 
 		mem_tracer+=4) {
@@ -772,7 +817,7 @@ void show_pipeline()
 	} 
 	printf("\n");
 	printf("MEM/WB ALUOutput 0x%08x\n", MEM_WB.ALUOutput);
-	printf("MEM/WB LMD 0x%08x\n", MEM_WB.LMD);
+	printf("MEM/WB LMD 0x%08x\n\n", MEM_WB.LMD);
 }
 
 /***************************************************************/

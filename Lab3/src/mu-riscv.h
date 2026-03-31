@@ -27,6 +27,14 @@
 #define MEM_STACK_BEGIN 0x7FFFFFFF
 #define MEM_STACK_END  0x10010000
 
+enum R_FUNCT3 {
+    ADD_SUB = 0x0, SLL, SLT, SLTU, XOR, SRL_SRA, OR, AND 
+};
+
+enum R_FUNCT7 {
+    ADD = 0x0, SRL = 0x0, SUB = 0x20, SRA = 0x20
+};
+
 typedef struct {
 	uint32_t begin, end;
 	uint8_t *mem;
