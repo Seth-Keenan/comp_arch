@@ -322,9 +322,6 @@ void handle_pipeline()
 	SNAP_EX_MEM = EX_MEM;
 	SNAP_MEM_WB = MEM_WB;
 
-	printf("\nShow Pipeline: \n");
-	show_pipeline();
-
 	WB();
 	MEM();
 	EX();
@@ -345,11 +342,13 @@ void WB()
 
 	uint8_t opcode = GET_OPCODE(ir);
 	uint8_t rd = (ir >> 7) & BIT_MASK_5;
+	uint8_t rt = (ir >> 20) & BIT_MASK_5;
 
 	switch (opcode) {
 		case R_OPCODE:
-		case IMM_ALU_OPCODE:
 			if (rd != 0) NEXT_STATE.REGS[rd] = MEM_WB.ALUOutput;
+		case IMM_ALU_OPCODE:
+			if (rt != 0) NEXT_STATE.REGS[rt] = MEM_WB.ALUOutput;
 			break;
 		case LOAD_OPCODE:
 			if (rd != 0) NEXT_STATE.REGS[rd] = MEM_WB.LMD;
@@ -372,14 +371,16 @@ void WB()
 void MEM()
 {
 	MEM_WB.IR = EX_MEM.IR;
-	MEM_WB.ALUOutput = EX_MEM.ALUOutput;
-	MEM_WB.LMD = 0;
 
 	if (EX_MEM.IR == 0) return;
 
 	uint8_t opcode = GET_OPCODE(EX_MEM.IR);
 
-	if (opcode == LOAD_OPCODE) {
+	if (opcode == R_OPCODE || opcode == IMM_ALU_OPCODE)
+	{
+		MEM_WB.ALUOutput = EX_MEM.ALUOutput;
+	}
+	else if (opcode == LOAD_OPCODE) {
 		MEM_WB.LMD = mem_read_32(EX_MEM.ALUOutput);
 	} else if (opcode == STORE_OPCODE) {
 		mem_write_32(EX_MEM.ALUOutput, EX_MEM.B);
@@ -393,25 +394,32 @@ void MEM()
 void EX()
 {
 	EX_MEM.IR = ID_EX.IR;
+
+	bool ALUInstruction = true;
+	bool reg_to_reg = true;
+
 	uint32_t ir = MEM_WB.IR;
 	if (ir == 0) return;
 
 	uint8_t opcode = GET_OPCODE(ir);
-	switch (opcode) {
-		case R_OPCODE:
-			break;
-		case IMM_ALU_OPCODE:
-			
-			break;
-		case LOAD_OPCODE:
-			
-			break;
-		case STORE_OPCODE:
 
-			break;
-		default:
-			break;
+	printf("\n\nEX Stage:\n");
+	printf("IR = %x\n", EX_MEM.IR);
+	printf("A = %x\n", ID_EX.A);
+	printf("B = %x\n", ID_EX.B);
+	printf("imm = %x\n", ID_EX.imm);
+
+	if(opcode == IMM_ALU_OPCODE || opcode == R_OPCODE) {
+		if(opcode == R_OPCODE) {
+			EX_MEM.ALUOutput = ID_EX.A + ID_EX.B;
+		} else {
+			EX_MEM.ALUOutput = ID_EX.A + ID_EX.imm;
+		}
+	} else {
+		EX_MEM.ALUOutput = ID_EX.A + ID_EX.imm;
+		EX_MEM.B = ID_EX.B;
 	}
+	
 }
 
 
@@ -420,10 +428,13 @@ void EX()
 /************************************************************/
 void ID()
 {
+
+	printf("\n\nID Stage:\n");
+	printf("IR = %x\n", IF_ID.IR);
+	
 	ID_EX.IR = IF_ID.IR;
 	ID_EX.A = CURRENT_STATE.REGS[IF_ID.IR >> 15 & BIT_MASK_5];
 	ID_EX.B = CURRENT_STATE.REGS[IF_ID.IR >> 20 & BIT_MASK_5];
-
 	ID_EX.imm = (IF_ID.IR >> 0) & BIT_MASK_16;
 }
 
@@ -733,46 +744,38 @@ void print_b_cmd(char* cmd_name, uint8_t rs1, uint8_t rs2, uint16_t imm) {
 	printf("%s x%d, x%d, %d", cmd_name, rs1, rs2, imm);
 }
 
+/************************************************************/
+/* Print the current pipeline                                                                                    */
+/************************************************************/
 void show_pipeline()
 {
-	printf("Current PC: 0x%08x\n", CURRENT_STATE.PC);
-	printf("IF/ID IR 0x%08x", IF_ID.IR);
-	if (IF_ID.IR) {
-		printf(" ");
-		print_command(IF_ID.IR);
-	} 
+	printf("Current PC:          0x%08x\n", CURRENT_STATE.PC);
+	printf("IF/ID IR             0x%08x  ", IF_ID.IR);
+	if (IF_ID.IR) print_command(IF_ID.IR);
 	printf("\n");
-	printf("IF/ID PC 0x%08x\n", IF_ID.PC);
+	printf("IF/ID PC             0x%08x\n", IF_ID.PC);
 	printf("\n");
-	printf("ID/EX IR 0x%08x", ID_EX.IR);
-	if (ID_EX.IR) {
-		printf(" ");
-		print_command(ID_EX.IR);
-	} 
+	printf("ID/EX IR             0x%08x  ", ID_EX.IR);
+	if (ID_EX.IR) print_command(ID_EX.IR);
 	printf("\n");
-	printf("ID/EX A 0x%08x\n", ID_EX.A);
-	printf("ID/EX B 0x%08x\n", ID_EX.B);
-	printf("ID/EX imm 0x%08x\n", ID_EX.imm);
+	printf("ID/EX A              0x%08x\n", ID_EX.A);
+	printf("ID/EX B              0x%08x\n", ID_EX.B);
+	printf("ID/EX imm            0x%08x\n", ID_EX.imm);
 	printf("\n");
-	printf("EX/MEM IR 0x%08x", EX_MEM.IR);
-	if (EX_MEM.IR) {
-		printf(" ");
-		print_command(EX_MEM.IR);
-	}
+	printf("EX/MEM IR            0x%08x  ", EX_MEM.IR);
+	if (EX_MEM.IR) print_command(EX_MEM.IR);
 	printf("\n");
-	printf("EX/MEM A 0x%08x\n", EX_MEM.A);
-	printf("EX/MEM B 0x%08x\n", EX_MEM.B);
-	printf("EX/MEM ALUOutput 0x%08x\n", EX_MEM.ALUOutput);
+	printf("EX/MEM A             0x%08x\n", EX_MEM.A);
+	printf("EX/MEM B             0x%08x\n", EX_MEM.B);
+	printf("EX/MEM ALUOutput     0x%08x\n", EX_MEM.ALUOutput);
 	printf("\n");
-	printf("MEM/WB IR 0x%08x", MEM_WB.IR);
-	if (MEM_WB.IR) {
-		printf(" ");
-		print_command(MEM_WB.IR);
-	} 
+	printf("MEM/WB IR            0x%08x  ", MEM_WB.IR);
+	if (MEM_WB.IR) print_command(MEM_WB.IR);
 	printf("\n");
-	printf("MEM/WB ALUOutput 0x%08x\n", MEM_WB.ALUOutput);
-	printf("MEM/WB LMD 0x%08x\n", MEM_WB.LMD);
+	printf("MEM/WB ALUOutput     0x%08x\n", MEM_WB.ALUOutput);
+	printf("MEM/WB LMD           0x%08x\n", MEM_WB.LMD);
 }
+
 
 /***************************************************************/
 /* main                                                                                                                                   */
