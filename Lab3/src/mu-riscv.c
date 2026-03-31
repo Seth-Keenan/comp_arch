@@ -345,11 +345,13 @@ void WB()
 
 	uint8_t opcode = GET_OPCODE(ir);
 	uint8_t rd = (ir >> 7) & BIT_MASK_5;
+	uint8_t rt = (ir >> 20) & BIT_MASK_5;
 
 	switch (opcode) {
 		case R_OPCODE:
-		case IMM_ALU_OPCODE:
 			if (rd != 0) NEXT_STATE.REGS[rd] = MEM_WB.ALUOutput;
+		case IMM_ALU_OPCODE:
+			if (rt != 0) NEXT_STATE.REGS[rt] = MEM_WB.ALUOutput;
 			break;
 		case LOAD_OPCODE:
 			if (rd != 0) NEXT_STATE.REGS[rd] = MEM_WB.LMD;
@@ -372,14 +374,16 @@ void WB()
 void MEM()
 {
 	MEM_WB.IR = EX_MEM.IR;
-	MEM_WB.ALUOutput = EX_MEM.ALUOutput;
-	MEM_WB.LMD = 0;
 
 	if (EX_MEM.IR == 0) return;
 
 	uint8_t opcode = GET_OPCODE(EX_MEM.IR);
 
-	if (opcode == LOAD_OPCODE) {
+	if (opcode == R_OPCODE || opcode == IMM_ALU_OPCODE)
+	{
+		MEM_WB.ALUOutput = EX_MEM.ALUOutput;
+	}
+	else if (opcode == LOAD_OPCODE) {
 		MEM_WB.LMD = mem_read_32(EX_MEM.ALUOutput);
 	} else if (opcode == STORE_OPCODE) {
 		mem_write_32(EX_MEM.ALUOutput, EX_MEM.B);
@@ -393,25 +397,26 @@ void MEM()
 void EX()
 {
 	EX_MEM.IR = ID_EX.IR;
+
+	bool ALUInstruction = true;
+	bool reg_to_reg = true;
+
 	uint32_t ir = MEM_WB.IR;
 	if (ir == 0) return;
 
 	uint8_t opcode = GET_OPCODE(ir);
-	switch (opcode) {
-		case R_OPCODE:
-			break;
-		case IMM_ALU_OPCODE:
-			
-			break;
-		case LOAD_OPCODE:
-			
-			break;
-		case STORE_OPCODE:
 
-			break;
-		default:
-			break;
+	if(opcode == IMM_ALU_OPCODE || opcode == R_OPCODE) {
+		if(opcode == R_OPCODE) {
+			EX_MEM.ALUOutput = ID_EX.A + ID_EX.B;
+		} else {
+			EX_MEM.ALUOutput = ID_EX.A + ID_EX.imm;
+		}
+	} else {
+		EX_MEM.ALUOutput = ID_EX.A + ID_EX.imm;
+		EX_MEM.B = ID_EX.B;
 	}
+	
 }
 
 
@@ -419,11 +424,10 @@ void EX()
 /* instruction decode (ID) pipeline stage:                                                         */
 /************************************************************/
 void ID()
-{
+{	
 	ID_EX.IR = IF_ID.IR;
 	ID_EX.A = CURRENT_STATE.REGS[IF_ID.IR >> 15 & BIT_MASK_5];
 	ID_EX.B = CURRENT_STATE.REGS[IF_ID.IR >> 20 & BIT_MASK_5];
-
 	ID_EX.imm = (IF_ID.IR >> 0) & BIT_MASK_16;
 }
 
@@ -442,9 +446,6 @@ void IF()
 	IF_ID.PC = pc + 4;
 	NEXT_STATE.PC = pc + 4;
 }
- 
-
-
 /************************************************************/
 /* Initialize Memory                                                                                                    */
 /************************************************************/
