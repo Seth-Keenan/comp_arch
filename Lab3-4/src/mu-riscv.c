@@ -453,6 +453,10 @@ void EX()
 		EX_MEM.ALUOutput = ID_EX.A + ID_EX.imm;
 		EX_MEM.B = ID_EX.B;
 	}
+
+	if(ENABLE_FORWARDING) {
+		forward_result = EX_MEM.ALUOutput;
+	}
 }
 
 

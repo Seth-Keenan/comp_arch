@@ -129,6 +129,8 @@ static bool last_lw = false;
 static bool double_last_lw = true;
 static bool bubble = false;
 
+static uint32_t forward_result = 0;
+
 /***************************************************************/
 /* Function Declerations.                                                                                                */
 /***************************************************************/
