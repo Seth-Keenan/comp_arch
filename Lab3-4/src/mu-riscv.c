@@ -316,7 +316,6 @@ void load_program() {
 void handle_pipeline()
 {
 	// Test show pipeline here
-	printf("\nShow Pipeline: \n");
 	show_pipeline();
 
 	WB();
@@ -416,6 +415,7 @@ void EX()
 			if (wb_rd != 0) {
 				if (wb_rd == rs1) A = wb_val;
 				if (wb_rd == rs2) B = wb_val;
+				printf("\n\nEX Forwarding Check MEM_WB\n\n");
 			}
 		}
 
@@ -427,6 +427,7 @@ void EX()
 				if (ex_rd != 0) {
 					if (ex_rd == rs1) A = EX_MEM.ALUOutput;
 					if (ex_rd == rs2) B = EX_MEM.ALUOutput;
+					printf("\n\nEX Forwarding Check EX_MEM\n\n");
 				}
 			}
 		}
@@ -511,6 +512,40 @@ void ID()
 			ID_EX.B   = 0;
 			ID_EX.imm = 0;
 			bubble = true;
+			printf("\n\nSTALL - Load Hazard\n\n");
+			return;
+		}
+	}
+
+	// uint8_t ie_rs1 = (ID_EX.IR >> 15) & BIT_MASK_5;
+	// uint8_t ie_rs2 = (ID_EX.IR >> 20) & BIT_MASK_5;
+	uint8_t ie_rs1 = (ir >> 15) & BIT_MASK_5;
+	uint8_t ie_rs2 = (ir >> 20) & BIT_MASK_5;
+	if (GET_OPCODE(EX_MEM.IR) == R_OPCODE || GET_OPCODE(EX_MEM.IR) == IMM_ALU_OPCODE)
+	{
+		uint8_t em_rd = (EX_MEM.IR >> 7) & BIT_MASK_5;
+		if (em_rd != 0 && (em_rd == ie_rs1 || em_rd == ie_rs2))
+		{
+			ID_EX.IR  = 0;
+			ID_EX.A   = 0;
+			ID_EX.B   = 0;
+			ID_EX.imm = 0;
+			bubble = true;
+			printf("\n\nSTALL - 1 Cycle Ahead\n\n");
+			return;
+		}
+	}
+	else if (GET_OPCODE(MEM_WB.IR) == R_OPCODE || GET_OPCODE(MEM_WB.IR) == IMM_ALU_OPCODE)
+	{
+		uint8_t mw_rd = (MEM_WB.IR >> 7) & BIT_MASK_5;
+		if (mw_rd != 0 && (mw_rd == ie_rs1 || mw_rd == ie_rs2))
+		{
+			ID_EX.IR  = 0;
+			ID_EX.A   = 0;
+			ID_EX.B   = 0;
+			ID_EX.imm = 0;
+			bubble = true;
+			printf("\n\nSTALL - 2 Cycles Ahead\n\n");
 			return;
 		}
 	}
@@ -833,6 +868,7 @@ void print_b_cmd(char* cmd_name, uint8_t rs1, uint8_t rs2, uint16_t imm) {
 
 void show_pipeline()
 {
+	printf("\nShow Pipeline: \n");
 	printf("Current PC: 0x%08x\n", CURRENT_STATE.PC);
 	printf("IF/ID IR 0x%08x", IF_ID.IR);
 	if (IF_ID.IR) {
