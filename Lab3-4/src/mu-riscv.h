@@ -70,7 +70,7 @@ typedef struct CPU_Pipeline_Reg_Struct{
 } CPU_Pipeline_Reg;
 
 /***************************************************************/
-/* CPU State info.                                                                                                               */
+/* CPU State info                                                                                                 */
 /***************************************************************/
 
 CPU_State CURRENT_STATE, NEXT_STATE;

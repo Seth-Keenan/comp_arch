@@ -419,7 +419,7 @@ void EX()
 			}
 		}
 
-		// If EX_MEM.IR matches registration register
+		// If EX_MEM.IR matches registration register - 1 cycle
 		if (EX_MEM.IR != 0) {
 			uint8_t ex_op = GET_OPCODE(EX_MEM.IR);
 			if (ex_op == R_OPCODE || ex_op == IMM_ALU_OPCODE) {
