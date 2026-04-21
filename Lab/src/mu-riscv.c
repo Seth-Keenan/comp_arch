@@ -489,11 +489,8 @@ void B_Processing() {
     uint32_t imm_12   = (bincmd >> 31) & 0x1;
 
     int32_t imm = (imm_12 << 12) | (imm_11 << 11) | (imm_10_5 << 5) | (imm_4_1 << 1);
-    // Sign-extend from bit 12
-    if (imm_12) imm |= 0xFFFFE000;
 
-    // printf("IMM %d\n", imm); 
-    // printf("f3: %d\n", f3); 
+    if (imm_12) imm |= 0xFFFFE000;
 
     int branch_taken = 0;
     if (f3 == 0) {          // BEQ
@@ -514,9 +511,7 @@ void B_Processing() {
     }
 
     if (branch_taken) {
-        // printf("CHANGING PC\n");
         NEXT_STATE.PC = CURRENT_STATE.PC + imm;
-        // printf("New PC: 0x%08x\n", NEXT_STATE.PC);
     } else {
         printf("NOT CHANGING PC!\n");
     }

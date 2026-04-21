@@ -99,6 +99,7 @@ char prog_file[32];
 #define STORE_OPCODE 0b0100011
 #define BRANCH_OPCODE 0b1100011
 #define JUMP_OPCODE 0b1101111
+#define JALR_OPCODE 0b1100111
 
 
 /***************************************************************/
@@ -128,6 +129,8 @@ static uint8_t double_previous_rd = 0;
 static bool last_lw = false;
 static bool double_last_lw = true;
 static bool bubble = false;
+
+bool branch_taken = false;
 
 static uint32_t forward_result = 0;
 

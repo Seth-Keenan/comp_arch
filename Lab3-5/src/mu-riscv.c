@@ -398,6 +398,8 @@ void EX()
 	uint32_t A = ID_EX.A;
 	uint32_t B = ID_EX.B;
 
+	branch_taken = false;
+
 	if (ENABLE_FORWARDING) {
 
 		// If A or be match rs1 or rs2 - 2 cycle
@@ -433,66 +435,173 @@ void EX()
 		}
 	}
 
+	uint8_t funct3 = ir >> 12 & BIT_MASK_3;
+	uint8_t funct7 = ir >> 25 & BIT_MASK_7;
 	if(opcode == IMM_ALU_OPCODE || opcode == R_OPCODE) {
-		if(opcode == R_OPCODE) {
-			uint8_t funct3 = ir >> 12 & BIT_MASK_3;
-			uint8_t funct7 = ir >> 25 & BIT_MASK_7;
 
-			switch (funct3) {
-				case ADD_SUB:
-					switch(funct7) {
-						case ADD:
-							EX_MEM.ALUOutput = A + B;
-							break;
-						case SUB:
-							EX_MEM.ALUOutput = A - B;
-							break;
-						default:
-							break;
-					}
-					break;
-				case SLL:
-					EX_MEM.ALUOutput = A << (B & 0x1F);
-					break;
-				case SLT:
-					EX_MEM.ALUOutput = (int32_t)A < (int32_t)B ? 1 : 0;
-					break;
-				case SLTU:
-					EX_MEM.ALUOutput = A < B ? 1 : 0;
-					break;
-				case XOR:
-					EX_MEM.ALUOutput = A ^ B;
-					break;
-				case SRL_SRA:
-					switch(funct7) {
-						case SRL:
-							EX_MEM.ALUOutput = A >> (B & 0x1F);
-							break;
-						case SRA:
-							EX_MEM.ALUOutput = (int32_t)A >> (B & 0x1F);
-							break;
-						default:
-							break;
-					}
-					break;
-				case OR:
-					EX_MEM.ALUOutput = A | B;
-					break;
-				case AND:
-					EX_MEM.ALUOutput = A & B;
-					break;
-				default:
-					break;
-			}
-		} else {
-			EX_MEM.ALUOutput = A + ID_EX.imm;
+	if (opcode == R_OPCODE) {
+		switch (funct3) {
+			case ADD_SUB:
+				switch(funct7) {
+					case ADD:
+						EX_MEM.ALUOutput = A + B;
+						break;
+					case SUB:
+						EX_MEM.ALUOutput = A - B;
+						break;
+					default:
+						break;
+				}
+				break;
+			case SLL:
+				EX_MEM.ALUOutput = A << (B & 0x1F);
+				break;
+			case SLT:
+				EX_MEM.ALUOutput = (int32_t)A < (int32_t)B ? 1 : 0;
+				break;
+			case SLTU:
+				EX_MEM.ALUOutput = A < B ? 1 : 0;
+				break;
+			case XOR:
+				EX_MEM.ALUOutput = A ^ B;
+				break;
+			case SRL_SRA:
+				switch(funct7) {
+					case SRL:
+						EX_MEM.ALUOutput = A >> (B & 0x1F);
+						break;
+					case SRA:
+						EX_MEM.ALUOutput = (int32_t)A >> (B & 0x1F);
+						break;
+					default:
+						break;
+				}
+				break;
+			case OR:
+				EX_MEM.ALUOutput = A | B;
+				break;
+			case AND:
+				EX_MEM.ALUOutput = A & B;
+				break;
+			default:
+				break;
 		}
+
+		} else {
+		EX_MEM.ALUOutput = A + ID_EX.imm;
+		EX_MEM.B = B;
+		}
+	} else if(opcode == BRANCH_OPCODE) {
+		uint8_t  f3 = funct3; 
+
+		uint32_t imm_11 = (ir >> 7)  & 0x1;
+		uint32_t imm_4_1 = (ir >> 8)  & 0xF;
+		uint32_t imm_10_5 = (ir >> 25) & 0x3F;
+		uint32_t imm_12 = (ir >> 31) & 0x1;
+
+		int32_t imm = (imm_12 << 12) | (imm_11 << 11) | (imm_10_5 << 5) | (imm_4_1 << 1);
+
+		if (imm_12) imm |= 0xFFFFE000;
+
+		if (f3 == 0) {          // BEQ
+			branch_taken = (A == B);
+		} else if (f3 == 1) {   // BNE
+			branch_taken = (A != B);
+		} else if (f3 == 4) {   // BLT
+			branch_taken = ((int32_t)A < (int32_t)B);
+		} else if (f3 == 5) {   // BGE
+			branch_taken = ((int32_t)A >= (int32_t)B);
+		} else if (f3 == 6) {   // BLTU
+			branch_taken = (A < B);
+		} else if (f3 == 7) {   // BGEU
+			branch_taken = (A >= B);
+		} else {
+			printf("Invalid Branch Command!\n");
+			return;
+		}
+
+		if (branch_taken) {
+			// Flush last instruction
+			IF_ID.IR  = 0;
+			IF_ID.A   = 0;
+			IF_ID.B   = 0;
+			IF_ID.imm = 0;
+			
+			ID_EX.IR  = 0;
+			ID_EX.A   = 0;
+			ID_EX.B   = 0;
+			ID_EX.imm = 0;
+			bubble = true;
+
+			IF_ID.PC = CURRENT_STATE.PC + imm;
+
+			printf("\n\nSTALL - Branch Hazard (taken)\n\n");
+		} else {
+			// Not taken - increment pc counter happens in IF
+			ID_EX.IR  = 0;
+			ID_EX.A   = 0;
+			ID_EX.B   = 0;
+			ID_EX.imm = 0;
+			bubble = true;
+			printf("\n\nSTALL - Branch Hazard (not taken)\n\n");
+		}
+	} else if(opcode == JUMP_OPCODE) {		
+		uint32_t rd = (ir >> 7) & BIT_MASK_5;
+		uint32_t imm_19_12 = (ir >> 12) & 0xFF;
+		uint32_t imm_11 = (ir >> 20) & 0x1;
+		uint32_t imm_10_1 = (ir >> 21) & 0x3FF;
+		uint32_t imm_20 = (ir >> 31) & 0x1;
+
+		int32_t imm = (imm_20 << 20) | (imm_19_12 << 12) | (imm_11 << 11) | (imm_10_1 << 1);
+
+		if (imm_20) imm |= 0xFFE00000;
+
+		branch_taken = true;
+
+		NEXT_STATE.REGS[rd] = (uint32_t)(ID_EX.PC + 4);
+		IF_ID.PC += CURRENT_STATE.PC + imm;
+
+		IF_ID.IR  = 0;
+		IF_ID.A   = 0;
+		IF_ID.B   = 0;
+		IF_ID.imm = 0;
+		
+		ID_EX.IR  = 0;
+		ID_EX.A   = 0;
+		ID_EX.B   = 0;
+		ID_EX.imm = 0;
+
+		bubble = true;
+
+	} else if (opcode == JALR_OPCODE) {
+		uint32_t rd = (ir >> 7) & BIT_MASK_5;
+		uint32_t func3 = (ir >> 12) & BIT_MASK_3;
+		uint32_t rs1 = (ir >> 15) & BIT_MASK_5;
+		int32_t imm = (int32_t)(ir) >> 20;
+		
+		branch_taken = true;
+
+		IF_ID.IR  = 0;
+		IF_ID.A   = 0;
+		IF_ID.B   = 0;
+		IF_ID.imm = 0;
+		
+		ID_EX.IR  = 0;
+		ID_EX.A   = 0;
+		ID_EX.B   = 0;
+		ID_EX.imm = 0;
+
+		bubble = true;
+
+		NEXT_STATE.REGS[rd] = (ID_EX.PC + 4);
+		IF_ID.PC = (CURRENT_STATE.REGS[rs1] + imm);
+		// IF_ID.PC = (CURRENT_STATE.REGS[rs1] + imm) & ~1;
+
 	} else {
 		EX_MEM.ALUOutput = A + ID_EX.imm;
 		EX_MEM.B = B;
-	}
+	} 
 }
-
 
 /************************************************************/
 /* instruction decode (ID) pipeline stage:                                                         */
@@ -517,8 +626,6 @@ void ID()
 		}
 	}
 
-	// uint8_t ie_rs1 = (ID_EX.IR >> 15) & BIT_MASK_5;
-	// uint8_t ie_rs2 = (ID_EX.IR >> 20) & BIT_MASK_5;
 	uint8_t ie_rs1 = (ir >> 15) & BIT_MASK_5;
 	uint8_t ie_rs2 = (ir >> 20) & BIT_MASK_5;
 	if (GET_OPCODE(EX_MEM.IR) == R_OPCODE || GET_OPCODE(EX_MEM.IR) == IMM_ALU_OPCODE)
@@ -577,8 +684,11 @@ void IF()
 	} else {
 		IF_ID.IR = 0;
 	}
-	IF_ID.PC = pc + 4;
-	NEXT_STATE.PC = pc + 4;
+
+	if (!branch_taken) {
+		IF_ID.PC = pc + 4;
+		NEXT_STATE.PC = pc + 4;
+	}
 }
 
 /************************************************************/
