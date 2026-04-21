@@ -559,7 +559,7 @@ void EX()
 		branch_taken = true;
 
 		NEXT_STATE.REGS[rd] = (uint32_t)(ID_EX.PC + 4);
-		IF_ID.PC += CURRENT_STATE.PC + imm;
+		IF_ID.PC = CURRENT_STATE.PC + imm;
 
 		IF_ID.IR  = 0;
 		IF_ID.A   = 0;
