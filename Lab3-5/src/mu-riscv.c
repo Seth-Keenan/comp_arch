@@ -533,7 +533,7 @@ void EX()
 			ID_EX.imm = 0;
 			bubble = true;
 
-			IF_ID.PC = CURRENT_STATE.PC + imm;
+			NEXT_STATE.PC = ID_EX.PC + imm;
 
 			printf("\n\nSTALL - Branch Hazard (taken)\n\n");
 		} else {
@@ -559,7 +559,7 @@ void EX()
 		branch_taken = true;
 
 		NEXT_STATE.REGS[rd] = (uint32_t)(ID_EX.PC + 4);
-		IF_ID.PC = CURRENT_STATE.PC + imm;
+		NEXT_STATE.PC = ID_EX.PC + imm;
 
 		IF_ID.IR  = 0;
 		IF_ID.A   = 0;
@@ -594,8 +594,7 @@ void EX()
 		bubble = true;
 
 		NEXT_STATE.REGS[rd] = (ID_EX.PC + 4);
-		IF_ID.PC = (CURRENT_STATE.REGS[rs1] + imm);
-		// IF_ID.PC = (CURRENT_STATE.REGS[rs1] + imm) & ~1;
+		NEXT_STATE.PC = (CURRENT_STATE.REGS[rs1] + imm);
 
 	} else {
 		EX_MEM.ALUOutput = A + ID_EX.imm;
@@ -658,6 +657,7 @@ void ID()
 	}
 
 	ID_EX.IR = ir;
+	ID_EX.PC = IF_ID.PC - 4;
 	ID_EX.A = CURRENT_STATE.REGS[(ir >> 15) & BIT_MASK_5];
 	ID_EX.B = CURRENT_STATE.REGS[(ir >> 20) & BIT_MASK_5];
 
@@ -924,7 +924,7 @@ void handle_b_print(uint32_t bincmd) {
 			print_b_cmd("beq", rs1, rs2, imm);
 			break;
 		case 0x1:
-			print_b_cmd("beq", rs1, rs2, imm);
+			print_b_cmd("bne", rs1, rs2, imm);
 			break;
 		case 0x4:
 			print_b_cmd("blt", rs1, rs2, imm);
